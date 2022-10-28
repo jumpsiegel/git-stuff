@@ -1,0 +1,64 @@
+#!/bin/bash
+
+if [ "`git rev-parse --abbrev-ref HEAD`" == "master" ]; then
+  toplev="`git rev-parse --show-toplevel`"
+  if [ "`basename $toplev`" == "bitcoin" ]; then
+     echo "bonehead move.. not allowed in this team.."
+     exit 1
+  fi
+fi
+
+if [ "`git status --porcelain | egrep '^( )?(M|A)' | wc -l`" == "0" ]; then
+  echo ".. nothing to commit"
+  if [ "`git status | grep ahead | wc -l`" == "0" ]; then
+    echo ".. nothing to push"
+    exit 0
+  fi
+else
+  # we cannot pull unless we have already commited
+
+  BRANCH_NAME="`git symbolic-ref --short HEAD`"
+  ISSUE_NAME="`echo $BRANCH_NAME | sed -e 's/WH-//'`"
+  
+  if [ "$#" == "0" ]; then
+    echo .. git commit -a -m "comment from in `pwd`"
+    git commit -a -m "${BRANCH_NAME}: comment from in `pwd`"
+  else
+    echo .. git commit -a -m "${BRANCH_NAME}: $*"
+    if [ "`echo $BRANCH_NAME | grep WH- | wc -l`" == "0" ]; then
+      git commit -a -m "${BRANCH_NAME}: $*"
+    else
+      git commit -a -m "${BRANCH_NAME}: $* @ Closes #${ISSUE_NAME}"
+    fi
+  fi
+  
+  if [ $? -ne 0 ]; then
+    echo "commit failed.."
+    exit 1
+  fi
+fi
+
+if [ "`git rev-parse --abbrev-ref HEAD`" == "master" ]; then
+ # We rebase only on master since hopefuly the merge conflict was already handled on the branch
+ echo ".. git pull --rebase --no-edit"
+ git pull --rebase  --no-edit
+ 
+ if [ $? -ne 0 ]; then
+   echo "git pull rebase failed.."
+   exit 1
+ fi
+else
+ # On branches we never rebase in order to reduce the chances of merge conflicts between multiple developers
+
+ echo ".. git pull --no-rebase --no-edit"
+ git pull --no-rebase --no-edit
+ 
+ if [ $? -ne 0 ]; then
+   echo "git pull failed.."
+   exit 1
+ fi
+fi
+
+# push it out
+echo ".. git push"
+git push

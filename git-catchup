@@ -1,0 +1,69 @@
+#!/bin/bash
+
+cd `git rev-parse --show-toplevel`
+
+BRANCH_NAME="`git symbolic-ref --short HEAD`"
+BRANCH_HEAD="`git symbolic-ref --short refs/remotes/origin/HEAD | sed -e 's-^.*/--'`"
+
+if [ "$BRANCH_NAME" == "$BRANCH_HEAD" ] ; then
+  echo "Your in branch ${BRANCH_NAME}? why call catchup on branch ${BRANCH_NAME}?"
+  exit
+fi
+
+if [ "`git status --porcelain | egrep '^( )?(M|A)' | wc -l`" != "0" ]; then
+  echo 'Uncommitted changes in your directory.. commit them'
+  exit
+fi
+
+# lets turn off rebase because it helps with future merges..
+echo ... git config branch.`git rev-parse --abbrev-ref HEAD`.rebase false
+git config branch.`git rev-parse --abbrev-ref HEAD`.rebase false
+
+# catch up..
+echo ... git pull --no-rebase --no-edit
+git pull --no-rebase --no-edit
+
+if [ $? -ne 0 ]; then
+  echo "git pull failed?"
+  exit 1
+fi
+
+# do the merge
+if [ "$#" == "0" ]; then
+  echo ... git merge origin/$BRANCH_HEAD -m "${BRANCH_NAME}: catch up with ${BRANCH_HEAD} @ `hostname`"
+  git merge origin/$BRANCH_HEAD -m "${BRANCH_NAME}: catch up with ${BRANCH_HEAD} @ `hostname`"
+else
+  echo ... git merge $* -m "${BRANCH_NAME}: catch up with $* @ `hostname`"
+  git merge $* -m "${BRANCH_NAME}: catch up with $* @ `hostname`"
+fi
+
+#if [ $? -ne 0 ]; then
+#  echo "git merge failed?"
+#  exit 1
+#fi
+
+if [ "`git status --porcelain | egrep '^UU' | wc -l`" != "0" ]; then
+  echo .. lets see if we can automatically deal with the merge conflict
+  if [ "`git status --porcelain | egrep '^UU' | grep jlbtcstubs.ids | wc -l`" != "0" ]; then
+    echo ..resetting jlbtc/stubs/jlbtcstubs.ids to what was in $BRANCH_HEAD
+    git checkout -3 jlbtc/stubs/jlbtcstubs.ids
+    git add jlbtc/stubs/jlbtcstubs.ids
+    cd jlbtc
+    touch stubs/*.json
+    qmake
+    make stubs/jlbtcstub.hpp
+  fi
+
+  if [ "`git status --porcelain | egrep '^UU' | wc -l`" != "0" ]; then
+    echo ...Stuff is unmerged so we are gonna stop here
+    exit 1
+  else
+    echo ...Committing the merge back in
+    echo git commit -m "${BRANCH_NAME}: $* @ `hostname`"
+    git commit -a -m "${BRANCH_NAME}: merge @ `hostname`"
+  fi
+fi
+
+# push it back to the cloud
+echo ... git push
+git push

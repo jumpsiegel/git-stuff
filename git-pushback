@@ -1,0 +1,56 @@
+#!/bin/csh -f
+
+if ("$#" == "0") then
+  echo "we need a fortune cookie to associate with this..."
+  exit 1
+endif
+
+set b="`git rev-parse --abbrev-ref HEAD`"
+
+if ("$b" == "master") then
+  echo 'Your in branch master? why call pushback on branch master?'
+  exit 1
+endif
+
+if ("`git status --porcelain | egrep '^( )?(M|A)' | wc -l`" != "0") then
+  echo 'Uncommitted changes in your directory.. commit them'
+  exit 1
+endif
+
+
+echo ".. git catchup"
+git catchup "catchup with master before pushback"
+if ($status) then
+ echo "git catchup failed"
+ exit 1
+endif
+
+echo ".. git checkout master"
+git checkout master
+
+echo ".. git pull"
+git pull --no-edit
+if ($status) then
+  echo "git pull failed"
+  exit 1
+endif
+
+echo ".. git merge"
+git merge --squash $b  -m "doesThisMatter"
+if ($status) then
+  echo "git merge failed... why?!?  how could this fail?"
+  exit 1
+endif
+
+echo ".. git ci"
+git ci $*
+if ($status) then
+  echo "commit failed.."
+  exit 1
+endif
+
+echo ".. git checkout $b"
+git checkout $b
+
+echo ".. git catchup"
+git catchup "catch up with master after pushback"

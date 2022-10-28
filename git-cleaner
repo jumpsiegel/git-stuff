@@ -1,0 +1,4 @@
+#!/bin/bash -f
+
+cd `git rev-parse --show-toplevel`
+git status --porcelain | grep '^??' | cut -c4- | xargs rm -vrf

@@ -1,0 +1,9 @@
+#!/bin/csh -f
+
+if ( $1 == "" ) then
+echo "usage: git cleandir <directory>"
+exit
+endif
+
+cd $1
+git status --porcelain . | grep '^??' | cut -c4- | (cd `git rev-parse --show-toplevel` ; xargs rm -vrf)

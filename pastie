@@ -1,0 +1,6 @@
+#!/bin/bash
+
+haste_url=https://pastie.w2k.jumptrading.com
+url=$(cat | curl -s -k -X POST --data-binary @- ${haste_url}/documents | awk -vURL="$haste_url" -F'"' '{printf("%s/%s\n", URL, $4)}')
+echo $url
+rm -f libpeerconnection.log 2>/dev/null

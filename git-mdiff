@@ -1,0 +1,3 @@
+#!/bin/bash -f
+
+git log --patch-with-raw -n1 $1

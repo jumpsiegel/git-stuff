@@ -1,0 +1,94 @@
+#!/bin/bash -f
+
+# NOTE: THIS SCRIPT HAS NO SUPPORT FOR TAGS AND BRANCHES!!
+#
+# we need to think about how we want to do that.  I guess, if we see a
+#  --tag  in the argument or something (or a branch instead of master),
+# we could "git pull--unshallow" the repo..  hmmm....
+#
+# ~/tmp/configs-cache/.git/shallow  tells us if it is shallow
+#
+# git-get date     <= nice quick test that does nothing
+
+# Do all the locks/work in a sub-shell so that it will unlock before
+# we stream-out the data in case we block...
+
+if [[ "`hostname`" =~ ^fpia ]]; then 
+  eval ccache="/btc/${USER}/tmp/configs-cache"
+  eval ccache_root="/btc/${USER}/tmp"
+else
+  eval ccache="~/tmp/configs-cache"
+  eval ccache_root="~/tmp"
+fi
+
+(
+  # my one failure case... how?!
+  mkdir -p $ccache_root
+  exec 100>>${ccache_root}/.git-get.lock || exit 1
+  flock -w 60 100 || exit 1
+  
+  if [ ! -d $ccache ]; then
+      cd $ccache_root
+      # we want the clone to be fast since we might have a lot of threads
+      # waiting..   this will be an issue if you want to access old
+      # branches and tags on this (see above)
+      git clone --quiet --depth 1 git://btc-infra-24x7/configs.git configs-cache
+      touch ${ccache_root}/.git-get.time
+  else
+    # Lets see how old our touch file is
+    if [ -e ${ccache_root}/.git-get.time ]; then
+        tdiff=$(( $(date +%s) - $(stat ${ccache_root}/.git-get.time  -c %Y) ))
+    else
+        tdiff=999
+    fi
+  
+    # if it has been ten seconds, lets go through the cost of seeing if
+    # we want to do the update.  On the grid, lets lag 2 minutes
+    dcheck="10"
+    if [[ "`hostname`" =~ ^fpia ]]; then 
+      dcheck="120"
+    fi
+
+    if [ "$tdiff" -gt $dcheck ]; then
+      cd $ccache
+  
+      # Just doing a git pull is expensive since it both contacts the
+      # remote AND it traverses the local directory looking for modified
+      # files.. This was very slow on my linux-under-windows system.  
+      #
+      # To get around this, we are just going to assume there are no
+      # local changes (this IS a read only script) and compare the raw
+      # hashs of the local and remote before we call git pull which will
+      # do that file system traverse
+  
+      # The fetch SHOULD be fast since it touches very few local files
+      # and does not care about the condition of your local repo
+      #
+      # failure cases:
+      #   If the git server is not running,
+      #      fatal: unable to connect to 7.146.8.126:
+      #      7.146.8.126[0: 7.146.8.126]: errno=Connection refused
+      #   If the git host is unavailable  (takes about 5 seconds.. so every 10 seconds we will introduce a 5 second delay)
+      #      fatal: unable to connect to 7.146.8.2:
+      #      7.146.8.2[0: 7.146.8.2]: errno=No route to host
+      git fetch --quiet --force  >> /dev/null 2>&1 || true
+  
+      # if the fetch fails, we just use the local copy we already have
+  
+      # Now we can just compare hashes... Is there a better way?!
+      rem="`git log -n1 --format='%H' origin/master`"
+      loc="`git log -n1 --format='%H'`"
+      if [ "$rem" != "$loc" ]; then
+        git merge origin/master --quiet
+      fi
+      touch ${ccache_root}/.git-get.time
+    fi
+  fi
+)
+
+cd $ccache
+${1} ${2}
+
+# time git archive --remote=git://btc-infra-24x7/configs.git HEAD: rodeo/rodeo-config-multi.json  |& tar xf - -Oa  | wc -l
+# time git get cat rodeo/rodeo-config-multi.json | wc -l
+# time git get date

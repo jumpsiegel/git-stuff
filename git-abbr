@@ -1,0 +1,5 @@
+#!/bin/tcsh -f
+
+foreach commit (`git rev-list --all | grep ^$1`)
+ git --no-pager log -n1 --pretty=format:'%H %ci %an %s%n' $commit
+end

@@ -1,0 +1,11 @@
+#!/bin/bash -f
+
+cd /home/bcadmin/git/configs
+git pull --quiet --no-edit
+
+if [ "`git status --porcelain | egrep '^( )?(M|A)' | wc -l`" == "0" ]; then
+  exit 0
+fi
+
+git commit -a -m "save this"
+git push

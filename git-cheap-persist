@@ -1,0 +1,4 @@
+#!/bin/bash
+
+dest=$1
+flock ~/git/configs -c "cd ~/git/configs; mkdir -p `dirname $dest`; cat > $dest; git add $dest"

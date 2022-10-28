@@ -1,0 +1,31 @@
+#!/bin/bash
+
+if [ ! -d ~/tmp/configs ]; then
+  mkdir -p ~/tmp
+  cd ~/tmp
+  git clone --depth 1 git://btc-infra-24x7/configs.git
+else
+  cd ~/tmp/configs
+  git remote set-url origin git://btc-infra-24x7/configs.git
+  git pull
+fi
+
+cd ~/tmp/configs/db_configs
+emacsclient --alternate=emacs ${1}.json
+if [ "`git status --porcelain | egrep '^( )?(M|A)' | wc -l`" == "0" ]; then
+  echo ".. nothing to commit"
+else
+    git status
+
+    read -p "Do you want me to upload the changes back into the database? [y/N] " -n 1 -r
+    echo
+    if [ $REPLY == "y" ]; then
+      git-ci      
+    else
+      read -p "Do you want me to throw away all the changes? [y/N] " -n 1 -r
+      echo
+      if [ $REPLY == "y" ]; then
+        git checkout -- .
+      fi
+    fi
+fi

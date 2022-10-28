@@ -1,0 +1,3 @@
+#!/bin/csh -f
+
+git log --name-status -n1 $1

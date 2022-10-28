@@ -1,0 +1,66 @@
+#!/bin/bash
+
+# git config branch.master.description "you suck"
+
+dn="$(dirname "$0")"
+
+if [ -f /etc/profile.d/jump_module.sh ] ; then
+  source /etc/profile.d/jump_module.sh
+  module purge
+  module load -s git-2.19.2 python36_PyGithub-1.40
+fi
+
+# yum install jump_module_python36_PyGithub-1.40 jump_module_Python-3.6.4
+
+# 
+
+function listBranchWithDescription() {
+  branches=`git branch --sort=committerdate --list $1`
+
+  while read -r branch; do
+    clean_branch_name=${branch//\*\ /}
+    clean_branch_name=`echo $clean_branch_name | tr -d '[:cntrl:]' | sed -E "s/\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g"`
+    clean_branch_name=`echo $clean_branch_name | sed -E "s/^.+ -> //g"`
+
+    description=`git config branch.$clean_branch_name.description`
+    if [ "${branch::1}" == "*" ]; then
+      printf "$branch $description\n"
+    else
+      printf "  $branch $description\n"
+    fi
+  done <<< "$branches"
+}
+
+function annotateBranchWithDescription() {
+  branches=`git branch --list`
+
+  while read -r branch; do
+    clean_branch_name=${branch//\*\ /}
+    clean_branch_name=`echo $clean_branch_name | tr -d '[:cntrl:]' | sed -E "s/\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g"`
+    clean_branch_name=`echo $clean_branch_name | sed -E "s/^.+ -> //g"`
+
+    if [ "${clean_branch_name}" == "Spyro-I" ]; then
+         git config branch.${clean_branch_name}.description "joshs integration branch"
+    fi
+    if [ "${clean_branch_name}" == "master" ]; then
+         git config branch.${clean_branch_name}.description "git master branch"
+    fi
+    if [ "${clean_branch_name::4}" == "BTC-" ]; then
+      description=`git config branch.$clean_branch_name.description`
+      if [ "${description}" == "" ]; then
+         desc="`python3 $dn/make_issue.py topic  ${clean_branch_name:4}`"
+         echo git config branch.${clean_branch_name}.description \"$desc\"
+         git config branch.${clean_branch_name}.description "$desc"
+      fi
+    fi
+  done <<< "$branches"
+}
+
+# @see [git-branch](https://git-scm.com/docs/git-branch)
+if [[ "$@" = "annotate" ]]; then
+  annotateBranchWithDescription "$@"
+elif [[ "$@" = "" ]]; then
+  listBranchWithDescription "--color"
+elif [[ "$@" =~ "--color" || "$@" =~ "--no-color" ]]; then
+  listBranchWithDescription "$@"
+fi

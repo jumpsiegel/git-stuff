@@ -1,0 +1,20 @@
+#!/bin/bash -f
+
+if [ "`git lfs env | grep clean | sed -e 's/^.*= //'`" == '""' ]; then
+  git lfs install  
+  cd `git rev-parse --show-toplevel`
+
+  DIDSTASH=0
+  if  [ "`git status --porcelain | egrep '^( )?(M|A)' | wc -l`" != "0" ] ; then
+    git stash save
+    DIDSTASH=1
+  fi
+
+  rm .git/index
+  git checkout HEAD -- "$(git rev-parse --show-toplevel)"
+
+  if [ "$DIDSTASH" == "1" ]; then
+    git stash pop
+  fi
+fi
+

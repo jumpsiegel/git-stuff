@@ -1,0 +1,11 @@
+#!/bin/csh -f
+
+# git diff $(git merge-base --fork-point origin/master origin/BTC-10117)..origin/BTC-10117
+
+git fetch
+
+if ("$#" == "0") then
+  git diff origin/master...origin/`git rev-parse --abbrev-ref HEAD`
+else
+  git diff origin/master...origin/${1}
+endif

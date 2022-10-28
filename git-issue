@@ -1,0 +1,7 @@
+#!/bin/bash -f
+
+dn="$(dirname "$0")"
+
+# pip install PyGithub
+
+python3 $dn/make_issue.py $*

@@ -1,0 +1,39 @@
+#!/bin/bash -f
+
+if [[ "`hostname`" =~ ^fpia ]]; then 
+  eval ccache="/btc/${USER}/tmp/configs-cache"
+  eval ccache_root="/btc/${USER}/tmp"
+else
+  eval ccache="~/tmp/configs-cache"
+  eval ccache_root="~/tmp"
+fi
+
+mkdir -p $ccache_root
+  
+if [ "`crontab -l | grep sync-get | wc -l`" == "0" ]; then
+  for syncget in ~/dotfiles/git/sync-get ~/repos/dotfiles/git/sync-get /home/bcadmin/dotfiles/git/sync-get; do
+    if [ -e "$syncget" ]; then
+      break
+    fi
+  done
+  PTSCRIPT="$syncget 2>&1 >/dev/null"
+  crontab -l > ${ccache_root}/.ct
+  echo "*/5 * * * * $PTSCRIPT" >> ${ccache_root}/.ct
+  crontab ${ccache_root}/.ct
+  rm ${ccache_root}/.ct
+fi
+
+if [ "$1" != "fast" ]; then
+  sleep $[ ( $RANDOM % 60 ) + 1 ]s
+fi
+
+if [ ! -d $ccache ]; then
+    cd $ccache_root
+    git clone --quiet --depth 1 git://btc-infra-24x7/configs.git configs-cache
+else
+     cd $ccache
+     git pull --quiet -s recursive -X ours --no-edit
+fi
+
+touch ${ccache_root}/.git-get.time
+

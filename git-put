@@ -1,0 +1,47 @@
+#!/bin/bash -f
+
+# NOTE: THIS SCRIPT HAS NO SUPPORT FOR TAGS AND BRANCHES!!
+#
+# we need to think about how we want to do that.  I guess, if we see a
+#  --tag  in the argument or something (or a branch instead of master),
+# we could "git pull--unshallow" the repo..  hmmm....
+#
+# ~/tmp/configs-cache/.git/shallow  tells us if it is shallow
+#
+# git-get date     <= nice quick test that does nothing
+
+
+# Do all the locks/work in a sub-shell so that it will unlock before
+# we stream-out the data in case we block...
+
+if [[ "`hostname`" =~ ^fpia ]]; then 
+  eval ccache="/btc/${USER}/tmp/configs-cache"
+  eval ccache_root="/btc/${USER}/tmp"
+else
+  eval ccache="~/tmp/configs-cache"
+  eval ccache_root="~/tmp"
+fi
+
+(
+  # my one failure case... how?!
+  mkdir -p $ccache_root
+  exec 100>>${ccache_root}/.git-get.lock || exit 1
+  flock -w 60 100 || exit 1
+  
+  if [ ! -d $ccache ]; then
+      cd $ccache_root
+      # we want the clone to be fast since we might have a lot of threads
+      # waiting..   this will be an issue if you want to access old
+      # branches and tags on this (see above)
+      git clone --quiet --depth 1 git://btc-infra-24x7/configs.git configs-cache
+  else
+      cd $ccache
+      git pull --no-rebase --quiet --no-edit  >> /dev/null 2>&1 || true
+  fi
+)
+
+cd $ccache
+cat > ${1}
+git add ${1}
+git commit -m "comment from `hostname` in `pwd`"   >> /dev/null 2>&1 || true
+git push --quiet   >> /dev/null 2>&1 || true

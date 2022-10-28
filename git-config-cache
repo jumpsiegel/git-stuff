@@ -1,0 +1,31 @@
+#!/bin/bash -f
+
+# This returns the path to the local config cache. It assumes some other
+# background process is responsible for pulling/committing that cache.
+
+if [[ "`hostname`" =~ ^fpia ]]; then 
+  eval ccache="/btc/${USER}/tmp/configs-cache"
+  eval ccache_root="/btc/${USER}/tmp"
+else
+  eval ccache="~/tmp/configs-cache"
+  eval ccache_root="~/tmp"
+fi
+
+cachegood="0"
+if [ -e ${ccache_root}/.git-get.time ]; then
+     tdiff=$(( $(date +%s) - $(stat ${ccache_root}/.git-get.time  -c %Y) ))
+     if [ "$tdiff" -lt "1200" ]; then
+         cachegood="1"
+     fi
+fi
+if [ "$cachegood" -eq "0" ]; then
+    mkdir -p ${ccache_root}
+    for syncget in ~/dotfiles/git/sync-get ~/repos/dotfiles/git/sync-get /home/bcadmin/dotfiles/git/sync-get; do
+      if [ -e "$syncget" ]; then
+        break
+      fi
+    done
+    flock ${ccache_root}/.sync-get.lock ${syncget} fast 2>&1 >/dev/null
+fi
+
+echo $ccache
